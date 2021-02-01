@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <nullable>enable</nullable>
+    <treatwarningsaserrors>true</treatwarningsaserrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RetailInMotion.Data\RetailInMotion.Data.csproj" />
+    <ProjectReference Include="..\RetailInMotion.Services\RetailInMotion.Services.csproj" />
+  </ItemGroup>
+
+</Project>
