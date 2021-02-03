@@ -15,6 +15,7 @@ using Shared.Utils.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -70,11 +71,14 @@ namespace RetailIM.IntegrationTest.Flow
 
             using var orderCreationConsumer = _serviceProvider.GetService<OrderCreationConsumer>();
             await orderCreationConsumer.StartAsync(CancellationToken.None);
-            ResultDto<OrderCreationMessageResponseDto> result = await _controller.Create(orderCreation);
-            
-            Assert.NotEqual(Guid.NewGuid(), result.Result.OrderId);
+            ResultDto<string> result = _controller.Create(orderCreation);
 
-            return result.Result.OrderId;
+            var paginatedOrdersConsumer = _serviceProvider.GetService<RetrievePaginatedOrdersHandler>();
+            var orders = await paginatedOrdersConsumer.Execute(1);
+
+            Assert.NotEqual(Guid.NewGuid(), orders.Value.Orders.First().OrderId);
+
+            return orders.Value.Orders.First().OrderId;
         }
 
         private async Task<DeliveryDto> Test_UpdateOrder(Guid orderId)
@@ -88,9 +92,14 @@ namespace RetailIM.IntegrationTest.Flow
 
             using var updateOrderconsumer = _serviceProvider.GetService<UpdateOrderDeliveryConsumer>();
             await updateOrderconsumer.StartAsync(CancellationToken.None);
-            var deliveryResponse = await _controller.UpdateDelivery(orderId, updatedDelivery);
+            var deliveryResponse = _controller.UpdateDelivery(orderId, updatedDelivery);
 
-            Assert.True(deliveryResponse.Result.Success);
+            var orderHandler = _serviceProvider.GetService<RetrieveSingleOrderHandler>();
+            var orderResult = await orderHandler.Execute(orderId);
+
+            Assert.Equal(orderResult.Value.DeliveryDto.City, updatedDelivery.City);
+            Assert.Equal(orderResult.Value.DeliveryDto.Country, updatedDelivery.Country);
+            Assert.Equal(orderResult.Value.DeliveryDto.Street, updatedDelivery.Street);
 
             return updatedDelivery;
         }
@@ -108,45 +117,46 @@ namespace RetailIM.IntegrationTest.Flow
 
             using var updateOrderProductsConsumer = _serviceProvider.GetService<UpdateOrderProductsConsumer>();
             await updateOrderProductsConsumer.StartAsync(CancellationToken.None);
-            var result = await _controller.UpdateProducts(orderId, productQuantityDtos);
-            
-            Assert.True(result.Result.Success);
+            var result = _controller.UpdateProducts(orderId, productQuantityDtos);
+
+            var orderHandler = _serviceProvider.GetService<RetrieveSingleOrderHandler>();
+            var orderResult = await orderHandler.Execute(orderId);
+
+            Assert.Equal(orderResult.Value.Products.First(x => x.ProductId == productId).ProductId, productQuantityDtos.First().ProductId);
+            Assert.Equal(orderResult.Value.Products.First(x => x.ProductId == productId).Quantity, productQuantityDtos.First().Quantity);
         }
 
         private async Task Test_ListOrders()
         {
-            using PaginatedOrdersConsumer paginatedOrdersConsumer = _serviceProvider.GetService<PaginatedOrdersConsumer>();
+            var paginatedOrdersConsumer = _serviceProvider.GetService<RetrievePaginatedOrdersHandler>();
 
-            await paginatedOrdersConsumer.StartAsync(CancellationToken.None);
-            var result = await _controller.GetPaginated(1);
-            var orderQuantity = result.Result.Orders.Count;
+            var result = await paginatedOrdersConsumer.Execute(1);
+            var orderQuantity = result.Value.Orders.Count;
 
             Assert.True(orderQuantity > 0);
         }
 
         private async Task Test_GetOrderSingle(Guid orderId, DeliveryDto deliveryDto)
         {
-            OrderDto getOrderDto;
-            using (var getOrderConsumer = _serviceProvider.GetService<GetOrderConsumer>())
-            {
-                await getOrderConsumer.StartAsync(CancellationToken.None);
-                ResultDto<GetOrderMessageResponseDto> result = await _controller.Get(orderId);
-                getOrderDto = result.Result.Order;
-            }
+            var orderHandler = _serviceProvider.GetService<RetrieveSingleOrderHandler>();
+            var orderResult = await orderHandler.Execute(orderId);
 
-            Assert.Single(getOrderDto.Products);
-            Assert.Equal(deliveryDto.City, getOrderDto.DeliveryDto.City);
-            Assert.Equal(deliveryDto.Country, getOrderDto.DeliveryDto.Country);
-            Assert.Equal(deliveryDto.Street, getOrderDto.DeliveryDto.Street);
+            Assert.Single(orderResult.Value.Products);
+            Assert.Equal(deliveryDto.City, orderResult.Value.DeliveryDto.City);
+            Assert.Equal(deliveryDto.Country, orderResult.Value.DeliveryDto.Country);
+            Assert.Equal(deliveryDto.Street, orderResult.Value.DeliveryDto.Street);
         }
 
         private async Task Test_CancelOrder(Guid orderId)
         {
             using var deleteOrderConsumer = _serviceProvider.GetService<CancelOrderConsumer>();
             await deleteOrderConsumer.StartAsync(CancellationToken.None);
-            var result = await _controller.Cancel(orderId);
+            var result = _controller.Cancel(orderId);
 
-            Assert.True(result.Result.Success);
+            var orderHandler = _serviceProvider.GetService<RetrieveSingleOrderHandler>();
+            var orderResult = await orderHandler.Execute(orderId);
+
+            Assert.False(orderResult.Success);
         }
 
         private ServiceProvider BuildServiceProvider()
@@ -177,8 +187,6 @@ namespace RetailIM.IntegrationTest.Flow
                 .AddScoped<OrderCreationConsumer>()
                 .AddScoped<UpdateOrderDeliveryConsumer>()
                 .AddScoped<UpdateOrderProductsConsumer>()
-                .AddScoped<PaginatedOrdersConsumer>()
-                .AddScoped<GetOrderConsumer>()
                 .AddScoped<CancelOrderConsumer>()
                 .BuildServiceProvider();
 

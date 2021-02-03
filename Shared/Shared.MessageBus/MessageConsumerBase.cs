@@ -58,12 +58,6 @@ namespace Shared.MessageBus.Consumer
                 ResultDto<TServiceResponseDto> response = await HandleMessage(objDto);
 
                 _channel.BasicAck(ea.DeliveryTag, false);
-
-                var responseBody = _serializer.SerializeObjectToByteArray(response);
-                IBasicProperties basicProperties = _channel.CreateBasicProperties();
-                basicProperties.CorrelationId = correlationId;
-
-                _channel.BasicPublish(exchange: "", routingKey: replyTo, basicProperties: basicProperties, body: responseBody);
             };
 
             _channel.BasicConsume(_queueName, false, consumer);

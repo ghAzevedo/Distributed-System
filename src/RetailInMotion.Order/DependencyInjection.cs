@@ -91,8 +91,6 @@ namespace RetailInMotion.WebApi
             return di
                 .AddHostedService<OrderCreationConsumer>()
                 .AddHostedService<CancelOrderConsumer>()
-                .AddHostedService<PaginatedOrdersConsumer>()
-                .AddHostedService<GetOrderConsumer>()
                 .AddHostedService<UpdateOrderDeliveryConsumer>()
                 .AddHostedService<UpdateOrderProductsConsumer>();
         }

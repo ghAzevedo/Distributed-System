@@ -4,8 +4,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using RetailInMotion.Model.Dto;
 using RetailInMotion.Model.Dto.Message;
+using RetailInMotion.Services.Order;
 using RetailInMotion.WebApi.Publisher.Orders;
 using Shared.MessageBus;
+using Shared.Utils;
 using Shared.Utils.Serialization;
 
 namespace RetailInMotion.WebApi
@@ -18,61 +20,65 @@ namespace RetailInMotion.WebApi
         private readonly UpdateOrderDeliveryMessageSender _updateOrderDeliveryMessageSender;
         private readonly UpdateOrderProductsMessageSender _updateOrderProductsMessageSender;
         private readonly CancelOrderMessageSender _cancelOrderMessageSender;
-        private readonly GetOrderMessageSender _getOrderMessageSender;
-        private readonly PaginatedOrderMessageSender _paginatedOrderMessageSender;
 
-        public OrderController(RabbitMQSettings settings, ISerializer serializer)
+        private readonly RetrieveSingleOrderHandler _retrieveSingleOrderHandler;
+        private readonly RetrievePaginatedOrdersHandler _retrievePaginatedOrdersHandler;
+
+        public OrderController(
+            RetrieveSingleOrderHandler retrieveSingleOrderHandler,
+            RetrievePaginatedOrdersHandler retrievePaginatedOrdersHandler,
+            RabbitMQSettings settings, 
+            ISerializer serializer)
         {
             _orderCreationMessageSender = new OrderCreationMessageSender(settings, serializer);
             _updateOrderDeliveryMessageSender = new UpdateOrderDeliveryMessageSender(settings, serializer);
             _updateOrderProductsMessageSender = new UpdateOrderProductsMessageSender(settings, serializer);
             _cancelOrderMessageSender = new CancelOrderMessageSender(settings, serializer);
-            _getOrderMessageSender = new GetOrderMessageSender(settings, serializer);
-            _paginatedOrderMessageSender = new PaginatedOrderMessageSender(settings, serializer);
+
+            _retrieveSingleOrderHandler = retrieveSingleOrderHandler;
+            _retrievePaginatedOrdersHandler = retrievePaginatedOrdersHandler;
         }
 
         [HttpPost("create")]
-        public async Task<ResultDto<OrderCreationMessageResponseDto>> Create(OrderCreationDto order)
+        public ResultDto<string> Create(OrderCreationDto order)
         {
             Console.WriteLine("called controller");
 
             using (_orderCreationMessageSender)
-                return await _orderCreationMessageSender.CallAsync(order);
+                return _orderCreationMessageSender.CallAsync(order);
         }
 
         [HttpPut("updatedelivery/{orderId}")]
-        public async Task<ResultDto<UpdateOrderDeliveryMessageResponseDto>> UpdateDelivery(Guid orderId, DeliveryDto delivery)
+        public ResultDto<string> UpdateDelivery(Guid orderId, DeliveryDto delivery)
         {
             using (_updateOrderDeliveryMessageSender)
-                return await _updateOrderDeliveryMessageSender.CallAsync(new Model.OrderDelivery(orderId, delivery));
+                return _updateOrderDeliveryMessageSender.CallAsync(new Model.OrderDelivery(orderId, delivery));
         }
 
         [HttpPut("updateproducts/{orderId}")]
-        public async Task<ResultDto<UpdateProductsMessageResponseDto>> UpdateProducts(Guid orderId, List<ProductQuantityDto> products)
+        public ResultDto<string> UpdateProducts(Guid orderId, List<ProductQuantityDto> products)
         {
             using (_updateOrderProductsMessageSender)
-                return await _updateOrderProductsMessageSender.CallAsync(new Model.OrderItems(orderId, products));
+                return _updateOrderProductsMessageSender.CallAsync(new Model.OrderItems(orderId, products));
         }
 
         [HttpDelete("{orderId}")]
-        public async Task<ResultDto<CancelOrderMessageResponseDto>> Cancel(Guid orderId)
+        public ResultDto<string> Cancel(Guid orderId)
         {
             using (_cancelOrderMessageSender)
-                return await _cancelOrderMessageSender.CallAsync(orderId);
+                return _cancelOrderMessageSender.CallAsync(orderId);
         }
 
         [HttpGet("{orderId}")]
-        public async Task<ResultDto<GetOrderMessageResponseDto>> Get(Guid orderId)
+        public async Task<Result<OrderDto>> Get(Guid orderId)
         {
-            using (_getOrderMessageSender)
-                return await _getOrderMessageSender.CallAsync(orderId);
+            return await _retrieveSingleOrderHandler.Execute(orderId);
         }
 
         [HttpGet("page/{pageNumber}")]
-        public async Task<ResultDto<PaginatedOrdersMessageResponseDto>> GetPaginated(int pageNumber)
+        public async Task<Result<PaginatedOrdersMessageResponseDto>> GetPaginated(int pageNumber)
         {
-            using (_paginatedOrderMessageSender) 
-                return await _paginatedOrderMessageSender.CallAsync(pageNumber);
+                return await _retrievePaginatedOrdersHandler.Execute(pageNumber);
         }
     }
 }
