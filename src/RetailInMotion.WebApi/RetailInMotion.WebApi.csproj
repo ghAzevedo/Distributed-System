@@ -16,6 +16,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Shared.MessageBus\Shared.MessageBus.csproj" />
     <ProjectReference Include="..\RetailInMotion.Publisher\RetailInMotion.Publisher.csproj" />
+    <ProjectReference Include="..\RetailInMotion.ServiceDependencies\RetailInMotion.ServiceDependencies.csproj" />
+    <ProjectReference Include="..\RetailInMotion.Services\RetailInMotion.Services.csproj" />
   </ItemGroup>
 
 </Project>

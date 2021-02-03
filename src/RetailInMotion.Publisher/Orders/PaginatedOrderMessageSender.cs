@@ -1,10 +1,9 @@
-﻿using RetailInMotion.Model.Dto;
-using Shared.MessageBus;
+﻿using Shared.MessageBus;
 using Shared.Utils.Serialization;
 
 namespace RetailInMotion.WebApi.Publisher.Orders
 {
-    public class PaginatedOrderMessageSender : MessageSender<int, PaginatedOrdersMessageResponseDto>
+    public class PaginatedOrderMessageSender : MessageSender<int>
     {
         public PaginatedOrderMessageSender(RabbitMQSettings settings, ISerializer serializer)
             : base(settings, QueueName.RetrievePaginatedOrder, serializer)

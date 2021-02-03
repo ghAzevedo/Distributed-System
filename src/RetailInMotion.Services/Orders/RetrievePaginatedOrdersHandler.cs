@@ -26,7 +26,7 @@ namespace RetailInMotion.Services.Order
             _dependencies = dependencies;
         }
 
-        public async Task<Result<PaginatedOrdersMessageResponseDto>> Handle(int page)
+        public async Task<Result<PaginatedOrdersMessageResponseDto>> Execute(int page)
         {
             var orders = await GetPaginatedOrders(page, 10);
 

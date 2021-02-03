@@ -27,16 +27,15 @@ namespace RetailInMotion.Services.Order
             _dependencies = retrieveSingleOrderHandlerDependencies;
         }
 
-        public async Task<Result<GetOrderMessageResponseDto>> Handle(Guid orderId)
+        public async Task<Result<OrderDto>> Execute(Guid orderId)
         {
             return await GetOrder(orderId)
                 .Combine(_ => GetOrderProducts(orderId))
                 .Combine(x => GetProducts(x.Item2))
                 .Combine(_ => GetDelivery(orderId))
-                .MapAsync(MapToOrderDto)
-                .MapAsync(x => new GetOrderMessageResponseDto { Order = x.Value});
+                .MapAsync(MapToOrderDto);
 
-            Result<OrderDto> MapToOrderDto(
+            OrderDto MapToOrderDto(
                 (OrderEntity order,
                 IEnumerable<OrderProductEntity> orderProducts,
                 IEnumerable<ProductDto> products,
